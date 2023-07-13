@@ -1,95 +1,90 @@
-import 'dart:collection';
-import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
-import 'package:dartz/dartz.dart';
-import 'package:firebase/constants/firebase_instances.dart';
+import 'package:firebase/utils/firebase.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
-
-final userStream = StreamProvider.autoDispose
-    .family((ref, String userId) => AuthService.getUserById(userId));
-
-final usersStream = StreamProvider((ref) => FirebaseInstances.fireChat.users());
-// This code ley chai jo jo signup vako xa tyo ni dekhauna milxa
 
 class AuthService {
-  static CollectionReference userDb =
-      FirebaseInstances.fireStore.collection('users');
+  User getCurrentUser() {
+    User user = firebaseAuth.currentUser!;
+    return user;
+  }
 
-  static Stream<types.User> getUserById(String userId) {
-    return userDb.doc(userId).snapshots().map((event) {
-      final json = event.data() as Map<String, dynamic>;
-      return types.User(
-          id: event.id,
-          firstName: json['firstName'],
-          imageUrl: json['imageUrl'],
-          metadata: {
-            'email': json['metadata']['email'],
-            'token': json['metadata']['token']
-          });
+//create a firebase user
+  Future<bool> createUser(
+      {String? name,
+      User? user,
+      String? email,
+      String? country,
+      String? password}) async {
+    var res = await firebaseAuth.createUserWithEmailAndPassword(
+      email: '$email',
+      password: '$password',
+    );
+    if (res.user != null) {
+      await saveUserToFirestore(name!, res.user!, email!, country!);
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+//this will save the details inputted by the user to firestore.
+  saveUserToFirestore(
+      String name, User user, String email, String country) async {
+    await usersRef.doc(user.uid).set({
+      'username': name,
+      'email': email,
+      'time': Timestamp.now(),
+      'id': user.uid,
+      'bio': "",
+      'country': country,
+      'photoUrl': user.photoURL ?? '',
+      'gender': '',
     });
   }
 
-  static Future<Either<String, bool>> userSignUp(
-      {required String email,
-      required String password,
-      required String username,
-      required XFile image}) async {
-    try {
-      final token = await FirebaseInstances.fireMessage.getToken();
-      final imageName = DateTime.now().toString();
-      final ref =
-          FirebaseInstances.fireStorage.ref().child('userImage/${image.name}');
-      await ref.putFile(File(image.path));
-      final url = await ref.getDownloadURL();
-      final credential = await FirebaseInstances.firebaseAuth
-          .createUserWithEmailAndPassword(email: email, password: password);
+//function to login a user with his email and password
+  Future<bool> loginUser({String? email, String? password}) async {
+    var res = await firebaseAuth.signInWithEmailAndPassword(
+      email: '$email',
+      password: '$password',
+    );
 
-      await FirebaseInstances.fireChat.createUserInFirestore(
-        types.User(
-            firstName: username,
-            id: credential.user!.uid, // UID from Firebase Authentication
-            imageUrl: url,
-            lastName: '',
-            metadata: {
-              'email': email,
-              'token': token,
-            }),
-      );
-      await FirebaseFirestore.instance.clearPersistence();
-
-      return Right(true);
-    } on FirebaseAuthException catch (err) {
-      return Left('${err.message}');
+    if (res.user != null) {
+      return true;
+    } else {
+      return false;
     }
   }
 
-  static Future<Either<String, bool>> userLogin({
-    required String email,
-    required String password,
-  }) async {
-    try {
-      final credential = await FirebaseInstances.firebaseAuth
-          .signInWithEmailAndPassword(email: email, password: password);
-      final token = await FirebaseInstances.fireMessage.getToken();
-      await userDb.doc(credential.user!.uid).update({
-        'metadata': {'email': email, 'token': token}
-      });
-
-      return Right(true);
-    } on FirebaseAuthException catch (err) {
-      return Left('${err.message}');
-    }
+  forgotPassword(String email) async {
+    await firebaseAuth.sendPasswordResetEmail(email: email);
   }
 
-  static Future<Either<String, bool>> userLogout() async {
-    try {
-      final credential = await FirebaseInstances.firebaseAuth.signOut();
-      return Right(true);
-    } on FirebaseAuthException catch (err) {
-      return Left('${err.message}');
+  logOut() async {
+    await firebaseAuth.signOut();
+  }
+
+  String handleFirebaseAuthError(String e) {
+    if (e.contains("ERROR_WEAK_PASSWORD")) {
+      return "Password is too weak";
+    } else if (e.contains("invalid-email")) {
+      return "Invalid Email";
+    } else if (e.contains("ERROR_EMAIL_ALREADY_IN_USE") ||
+        e.contains('email-already-in-use')) {
+      return "The email address is already in use by another account.";
+    } else if (e.contains("ERROR_NETWORK_REQUEST_FAILED")) {
+      return "Network error occured!";
+    } else if (e.contains("ERROR_USER_NOT_FOUND") ||
+        e.contains('firebase_auth/user-not-found')) {
+      return "Invalid credentials.";
+    } else if (e.contains("ERROR_WRONG_PASSWORD") ||
+        e.contains('wrong-password')) {
+      return "Invalid credentials.";
+    } else if (e.contains('firebase_auth/requires-recent-login')) {
+      return 'This operation is sensitive and requires recent authentication.'
+          ' Log in again before retrying this request.';
+    } else {
+      return e;
     }
   }
 }

@@ -1,57 +1,48 @@
-class Like {
-  final int likes;
-  final List<String> usernames;
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-  Like({required this.likes, required this.usernames});
+class PostModel {
+  String? id;
+  String? postId;
+  String? ownerId;
+  String? username;
+  String? location;
+  String? description;
+  String? mediaUrl;
+  Timestamp? timestamp;
+  
 
-  factory Like.fromJson(Map<String, dynamic> json) {
-    return Like(
-        likes: json['likes'],
-        usernames:
-            (json['usernames'] as List).map((e) => e as String).toList());
+  PostModel({
+    this.id,
+    this.postId,
+    this.ownerId,
+    this.location,
+    this.description,
+    this.mediaUrl,
+    this.username,
+    this.timestamp,
+  });
+  PostModel.fromJson(Map<String, dynamic> json) {
+    id = json['id'];
+    postId = json['postId'];
+    ownerId = json['ownerId'];
+    location = json['location'];
+    username= json['username'];
+    description = json['description'];
+    mediaUrl = json['mediaUrl'];
+    timestamp = json['timestamp'];
   }
-}
 
-class Comment {
-  final String userName;
-  final String imageUrl;
-  final String comment;
-
-  Comment(
-      {required this.userName, required this.imageUrl, required this.comment});
-
-  factory Comment.fromJson(Map<String, dynamic> json) {
-    return Comment(
-        userName: json['userName'],
-        comment: json['comment'],
-        imageUrl: json['imageUrl']);
-  }
   Map<String, dynamic> toJson() {
-    return {
-      'imageUrl': this.imageUrl,
-      'comment': this.comment,
-      'userName': this.userName
-    };
+    final Map<String, dynamic> data = new Map<String, dynamic>();
+    data['id'] = this.id;
+    data['postId'] = this.postId;
+    data['ownerId'] = this.ownerId;
+    data['location'] = this.location;
+    data['description'] = this.description;
+    data['mediaUrl'] = this.mediaUrl;
+
+    data['timestamp'] = this.timestamp;
+    data['username'] = this.username;
+    return data;
   }
-}
-
-class Post {
-  final String postId;
-  final String userId;
-  final String title;
-  final String detail;
-  final String imageUrl;
-  final String imageId;
-  final Like like;
-  final List<Comment> comments;
-
-  Post(
-      {required this.postId,
-      required this.userId,
-      required this.title,
-      required this.detail,
-      required this.imageUrl,
-      required this.like,
-      required this.comments,
-      required this.imageId});
 }

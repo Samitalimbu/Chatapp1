@@ -1,117 +1,71 @@
-import 'dart:async';
-import 'package:get/get.dart';
-import 'package:firebase/firebase_options.dart';
-import 'package:firebase/screens/status_page.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase/components/splash_screen.dart';
+import 'package:firebase/screens/mainscreen.dart';
+import 'package:firebase/services/user_service.dart';
+import 'package:firebase/utils/config.dart';
+import 'package:firebase/utils/constants.dart';
+import 'package:firebase/utils/providers.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:dio/dio.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:get/get_navigation/src/root/get_material_app.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 
-class Pos {
-  final String title;
-  final String body;
-  final String id;
+import 'components/life_cycle_event_handler.dart';
+import 'view_models/theme/theme_view_model.dart';
 
-  Pos({required this.title, required this.body, required this.id});
-
-  factory Pos.fromJson(Map<String, dynamic> json) {
-    return Pos(title: json['title'], body: json['body'], id: json['id']);
-  }
-}
-
-final postData = FutureProvider((ref) => PostProvider.getPost());
-
-class PostProvider {
-  static final dio = Dio();
-  static Future<List<Pos>> getPost() async {
-    try {
-      final response =
-          await dio.get('https://jsonplaceholder.typicode.com/posts');
-      return (response.data as List).map((e) => Pos.fromJson(e)).toList();
-    } on DioError catch (err) {
-      throw '${err.message}';
-    }
-  }
-}
-
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp();
-}
-
-const AndroidNotificationChannel channel = AndroidNotificationChannel(
-  "High_importance_channel",
-  "High_importance_channel",
-  importance: Importance.high,
-);
-
-final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-    FlutterLocalNotificationsPlugin();
-const InitializationSettings initializationSettings = InitializationSettings(
-  android: AndroidInitializationSettings("@mipmap/ic_launcher"),
-);
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Future.delayed(Duration(milliseconds: 500));
-
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-  await flutterLocalNotificationsPlugin
-      .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
-      ?.createNotificationChannel(channel);
-  flutterLocalNotificationsPlugin.initialize(
-    initializationSettings,
-  );
-  runApp(ProviderScope(child: Home()));
+  await Config.initFirebase();
+  runApp(MyApp());
 }
 
-class Home extends StatelessWidget {
-  const Home({super.key});
-
+class MyApp extends StatefulWidget {
   @override
-  Widget build(BuildContext context) {
-    return ScreenUtilInit(
-      designSize: const Size(411, 866),
-      minTextAdapt: true,
-      splitScreenMode: true,
-      builder: (BuildContext context, Widget? child) {
-        return GetMaterialApp(
-          debugShowCheckedModeBanner: false,
-          home: StatusPage(),
-        );
-      },
+  _MyAppState createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(
+      LifecycleEventHandler(
+        detachedCallBack: () => UserService().setUserStatus(false),
+        resumeCallBack: () => UserService().setUserStatus(true),
+      ),
     );
   }
-}
-
-class Counter extends StatelessWidget {
-  StreamController<int> numbers = StreamController();
-  int number = 0;
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: StreamBuilder<int>(
-        stream: numbers.stream,
-        builder: ((context, snapshot) {
-          return Center(
-              child: Text(
-            snapshot.data.toString(),
-            style: const TextStyle(fontSize: 29, color: Colors.black),
-          ));
-        }),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          numbers.sink.add(number++);
+    return MultiProvider(
+      providers: providers,
+      child: Consumer<ThemeProvider>(
+        builder: (context, ThemeProvider notifier, Widget? child) {
+          return MaterialApp(
+            title: Constants.appName,
+            debugShowCheckedModeBanner: false,
+            theme: themeData(
+              notifier.dark ? Constants.darkTheme : Constants.lightTheme,
+            ),
+            home: StreamBuilder(
+              stream: FirebaseAuth.instance.authStateChanges(),
+              builder: ((BuildContext context, snapshot) {
+                if (snapshot.hasData) {
+                  return TabScreen();
+                } else
+                  return SplashScreen();
+              }),
+            ),
+          );
         },
-        child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  ThemeData themeData(ThemeData theme) {
+    return theme.copyWith(
+      textTheme: GoogleFonts.nunitoTextTheme(
+        theme.textTheme,
       ),
     );
   }

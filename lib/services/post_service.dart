@@ -1,140 +1,124 @@
 import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:dartz/dartz.dart';
-import 'package:firebase/models/post.dart';
+import 'package:firebase/models/user.dart';
+import 'package:firebase/services/services.dart';
+import 'package:firebase/utils/firebase.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 
-import 'package:image_picker/image_picker.dart';
-import 'package:flutter_chat_types/flutter_chat_types.dart' as types;
+import '../screens/view_image.dart';
 
-import '../constants/firebase_instances.dart';
+class PostService extends Service {
+  String postId = Uuid().v4();
 
-final postStream = StreamProvider((ref) => PostService.getPosts());
-
-class PostService {
-  static CollectionReference postDb =
-      FirebaseInstances.fireStore.collection('posts');
-
-  static Stream<List<Post>> getPosts() {
-    return postDb.snapshots().map((event) => getPostData(event));
+//uploads profile picture to the users collection
+  uploadProfilePicture(File image, User user) async {
+    String link = await uploadImage(profilePic, image);
+    var ref = usersRef.doc(user.uid);
+    ref.update({
+      "photoUrl": link,
+    });
   }
 
-  static List<Post> getPostData(QuerySnapshot snapshot) {
-    return snapshot.docs.map((e) {
-      final json = e.data() as Map<String, dynamic>;
-      return Post(
-          imageId: json['imageId'],
-          like: Like.fromJson(json['like']),
-          imageUrl: json['imageUrl'],
-          userId: json['userId'],
-          comments: (json['comments'] as List)
-              .map((e) => Comment.fromJson(e))
-              .toList(),
-          detail: json['detail'],
-          postId: e.id,
-          title: json['title']);
-    }).toList();
+//uploads post to the post collection
+  uploadPost(File image, String location, String description) async {
+    String link = await uploadImage(posts, image);
+    DocumentSnapshot doc =
+        await usersRef.doc(firebaseAuth.currentUser!.uid).get();
+    user = UserModel.fromJson(
+      doc.data() as Map<String, dynamic>,
+    );
+    var ref = postRef.doc();
+    ref.set({
+      "id": ref.id,
+      "postId": ref.id,
+      "username": user!.username,
+      "ownerId": firebaseAuth.currentUser!.uid,
+      "mediaUrl": link,
+      "description": description ?? "",
+      "location": location ?? "Wooble",
+      "timestamp": Timestamp.now(),
+    }).catchError((e) {
+      print(e);
+    });
   }
 
-  static Future<Either<String, bool>> postAdd(
-      {required String title,
-      required String detail,
-      required String userId,
-      required XFile image}) async {
-    try {
-      final ref =
-          FirebaseInstances.fireStorage.ref().child('postImage/${image.name}');
-      await ref.putFile(File(image.path));
-      final url = await ref.getDownloadURL();
-
-      await postDb.add({
-        'userId': userId,
-        'title': title,
-        'detail': detail,
-        'imageUrl': url,
-        'imageId': image.name,
-        'like': {'likes': 0, 'usernames': []},
-        'comments': []
-      });
-
-      return Right(true);
-    } on FirebaseException catch (err) {
-      return Left('${err.message}');
+//upload a comment
+  uploadComment(String currentUserId, String comment, String postId,
+      String ownerId, String mediaUrl) async {
+    DocumentSnapshot doc = await usersRef.doc(currentUserId).get();
+    user = UserModel.fromJson(doc.data() as Map<String, dynamic>);
+    await commentRef.doc(postId).collection("comments").add({
+      "username": user!.username,
+      "comment": comment,
+      "timestamp": Timestamp.now(),
+      "userDp": user!.photoUrl,
+      "userId": user!.id,
+    });
+    bool isNotMe = ownerId != currentUserId;
+    if (isNotMe) {
+      addCommentToNotification("comment", comment, user!.username!, user!.id!,
+          postId, mediaUrl, ownerId, user!.photoUrl!);
     }
   }
 
-  static Future<Either<String, bool>> postUpdate(
-      {required String title,
-      required String detail,
-      required String postId,
-      String? imageId,
-      XFile? image}) async {
-    try {
-      if (image == null) {
-        await postDb.doc(postId).update({'title': title, 'detail': detail});
-      } else {
-        final ref =
-            FirebaseInstances.fireStorage.ref().child('postImage/$imageId');
-        await ref.delete();
-        final ref1 = FirebaseInstances.fireStorage
-            .ref()
-            .child('postImage/${image.name}');
-        await ref1.putFile(File(image.path));
-        final url = await ref1.getDownloadURL();
-        await postDb.doc(postId).update({
-          'title': title,
-          'detail': detail,
-          'imageId': image.name,
-          'imageUrl': url
-        });
-      }
-      return Right(true);
-    } on FirebaseException catch (err) {
-      return Left('${err.message}');
-    }
+//add the comment to notification collection
+  addCommentToNotification(
+      String type,
+      String commentData,
+      String username,
+      String userId,
+      String postId,
+      String mediaUrl,
+      String ownerId,
+      String userDp) async {
+    await notificationRef.doc(ownerId).collection('notifications').add({
+      "type": type,
+      "commentData": commentData,
+      "username": username,
+      "userId": userId,
+      "userDp": userDp,
+      "postId": postId,
+      "mediaUrl": mediaUrl,
+      "timestamp": Timestamp.now(),
+    });
   }
 
-  static Future<Either<String, bool>> postRemove(
-      String postId, String imageId) async {
-    try {
-      await postDb.doc(postId).delete();
-      final ref =
-          FirebaseInstances.fireStorage.ref().child('postImage/$imageId.name');
-      await ref.delete();
-
-      return Right(true);
-    } on FirebaseException catch (err) {
-      return Left('${err.message}');
-    }
+//add the likes to the notfication collection
+  addLikesToNotification(String type, String username, String userId,
+      String postId, String mediaUrl, String ownerId, String userDp) async {
+    await notificationRef
+        .doc(ownerId)
+        .collection('notifications')
+        .doc(postId)
+        .set({
+      "type": type,
+      "username": username,
+      "userId": firebaseAuth.currentUser!.uid,
+      "userDp": userDp,
+      "postId": postId,
+      "mediaUrl": mediaUrl,
+      "timestamp": Timestamp.now(),
+    });
   }
 
-  static Future<Either<String, bool>> addLike(
-      List<String> usernames, String postId, int like) async {
-    try {
-      final response = await postDb.doc(postId).update({
-        'like': {
-          'likes': like + 1,
-          'usernames': FieldValue.arrayUnion(usernames)
-        }
-      });
-      return Right(true);
-    } on FirebaseException catch (err) {
-      return Left('${err.message}');
-    }
-  }
+  //remove likes from notification
+  removeLikeFromNotification(
+      String ownerId, String postId, String currentUser) async {
+    bool isNotMe = currentUser != ownerId;
 
-  static Future<Either<String, bool>> addComment(
-      List<Comment> comments, String postId) async {
-    try {
-      final response = await postDb.doc(postId).update({
-        'comments':
-            FieldValue.arrayUnion(comments.map((e) => e.toJson()).toList())
-      });
-      return Right(true);
-    } on FirebaseException catch (err) {
-      print(err.message);
-      return Left('${err.message}');
+    if (isNotMe) {
+      DocumentSnapshot doc = await usersRef.doc(currentUser).get();
+      user = UserModel.fromJson(doc.data() as Map<String, dynamic>);
+      notificationRef
+          .doc(ownerId)
+          .collection('notifications')
+          .doc(postId)
+          .get()
+          .then((doc) => {
+                if (doc.exists) {doc.reference.delete()}
+              });
     }
   }
 }
