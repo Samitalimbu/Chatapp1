@@ -64,7 +64,7 @@ class HelpScreen extends StatelessWidget {
                 children: [
                   Image.asset("assets/images/full.png"),
                   Txt(
-                    " Provide a list of frequently asked questions and their answers \n related to the app's features, functionality, and common issues",
+                    " Provide a list of frequently asked questions and their \n  answers related to the app's features",
                     style: TxtStyle()
                       ..fontSize(12)
                       ..fontWeight(FontWeight.w400)
@@ -77,7 +77,7 @@ class HelpScreen extends StatelessWidget {
                 children: [
                   Image.asset("assets/images/full.png"),
                   Txt(
-                    "Keep users informed about any upcoming events, promotions, \n or important announcements related to the app",
+                    "Keep users informed about any upcoming  \n events, promotions, or important announcements ",
                     style: TxtStyle()
                       ..fontSize(12)
                       ..fontWeight(FontWeight.w400)

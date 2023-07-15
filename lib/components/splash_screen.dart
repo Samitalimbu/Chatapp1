@@ -2,9 +2,8 @@ import 'dart:async';
 
 import 'package:division/division.dart';
 import 'package:firebase/components/walkthrough_screen.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class SplashScreen extends StatefulWidget {
   @override
@@ -12,19 +11,25 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  Timer? _timer;
+
   @override
   void initState() {
     super.initState();
-    Timer(Duration(seconds: 8), () {
+    _timer = Timer(Duration(seconds: 8), () {
       Navigator.pushReplacement(context,
           MaterialPageRoute(builder: (context) => WalkthroughScreen()));
     });
   }
 
   @override
+  void dispose() {
+    _timer?.cancel(); // Cancel the timer if it's still active
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // SystemChrome.setSystemUIOverlayStyle(
-    //     const SystemUiOverlayStyle(statusBarColor: Colors.blue));
     return Scaffold(
       body: Stack(
         children: [

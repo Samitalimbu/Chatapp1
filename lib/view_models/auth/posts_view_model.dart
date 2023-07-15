@@ -1,17 +1,18 @@
 import 'dart:io';
 
-import 'package:firebase/models/post.dart';
 import 'package:firebase/screens/mainscreen.dart';
 import 'package:firebase/services/post_service.dart';
-import 'package:firebase/services/user_service.dart';
 import 'package:firebase/utils/constants.dart';
-import 'package:firebase/utils/firebase.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_cropper/image_cropper.dart';
 import 'package:image_picker/image_picker.dart';
+
+import '../../models/post.dart';
+import '../../services/user_service.dart';
+import '../../utils/firebase.dart';
 
 class PostsViewModel extends ChangeNotifier {
   //Services
@@ -91,12 +92,14 @@ class PostsViewModel extends ChangeNotifier {
 
   //Functions
   pickImage({bool camera = false, BuildContext? context}) async {
+    print("what");
     loading = true;
     notifyListeners();
     try {
       XFile? pickedFile = await picker.pickImage(
         source: camera ? ImageSource.camera : ImageSource.gallery,
       );
+      print("the image is $pickedFile");
 
       CroppedFile? croppedFile = await ImageCropper().cropImage(
         sourcePath: pickedFile!.path,
@@ -124,9 +127,11 @@ class PostsViewModel extends ChangeNotifier {
       loading = false;
       notifyListeners();
     } catch (e) {
+      print("the error is $e");
       loading = false;
       notifyListeners();
-      showInSnackBar('Cancelled', context);
+      showInSnackBar(
+          'Cancelled', context); // Pass the context to showInSnackBar
     }
   }
 

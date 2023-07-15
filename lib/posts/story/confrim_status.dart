@@ -1,16 +1,15 @@
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase/models/enum/message_type.dart';
 import 'package:firebase/models/status.dart';
 import 'package:firebase/utils/firebase.dart';
+import 'package:firebase/view_models/status/status_view_model.dart';
 import 'package:firebase/widgets/indicators.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:loading_overlay/loading_overlay.dart';
 import 'package:provider/provider.dart';
-
-import '../../models/enum/message_type.dart';
-import '../../view_models/status/status_view_model.dart';
 
 class ConfirmStatus extends StatefulWidget {
   @override

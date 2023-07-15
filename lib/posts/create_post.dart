@@ -2,13 +2,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase/components/custom_image.dart';
 import 'package:firebase/models/user.dart';
 import 'package:firebase/utils/firebase.dart';
-import 'package:firebase/view_models/auth/posts_view_model.dart';
 import 'package:firebase/widgets/indicators.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:ionicons/ionicons.dart';
 import 'package:loading_overlay/loading_overlay.dart';
 import 'package:provider/provider.dart';
+
+import '../view_models/auth/posts_view_model.dart';
 
 class CreatePost extends StatefulWidget {
   @override
